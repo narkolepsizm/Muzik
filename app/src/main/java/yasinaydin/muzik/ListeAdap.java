@@ -68,6 +68,7 @@ public class ListeAdap extends BaseAdapter {
         } else {
             iw.setImageResource(R.drawable.music);
         }*/
+        //deneme
         iw.setImageResource(R.drawable.music);
         return gorunum;
     }
