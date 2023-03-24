@@ -36,7 +36,10 @@ import androidx.core.app.ActivityCompat;
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import static yasinaydin.muzik.Muzikk.oynat;
 
@@ -362,8 +365,31 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         int uzuu=liste.size();
-                        for(int ik=0;ik<uzuu-1;ik++){
+                        HashMap<String, String> listeeee = new HashMap<String, String>();
+                        HashMap<String, String> konumlarrrr = new HashMap<String, String>();
+                        HashMap<String, String> sanatciiii= new HashMap<String, String>();
+                        HashMap<String, String> sureeee = new HashMap<String, String>();
+                        for(int ik = 0; ik < uzuu ; ik++){
+                            listeeee.put(liste.get(ik), liste.get(ik));
+                            konumlarrrr.put(liste.get(ik), konumlar.get(ik));
+                            sanatciiii.put(liste.get(ik), sanatciii.get(ik));
+                            sureeee.put(liste.get(ik), sureee.get(ik));
+                        }
+                        TreeMap<String, String> sorted = new TreeMap<>();
+                        sorted.putAll(listeeee);
+                        liste = new ArrayList<String>();
+                        konumlar = new ArrayList<String>();
+                        sanatciii = new ArrayList<String>();
+                        sureee = new ArrayList<String>();
+                        for (Map.Entry<String, String> entry : sorted.entrySet()) {
+                            liste.add(entry.getValue());
+                            konumlar.add(konumlarrrr.get(entry.getKey()));
+                            sanatciii.add(sanatciiii.get(entry.getKey()));
+                            sureee.add(sureeee.get(entry.getKey()));
+                        }
+                        /*for(int ik=0;ik<uzuu-1;ik++){
                             for(int il=0;il<uzuu-1-ik;il++){
+                                Log.d("TAG", "ik: "+ik+" il: "+il);
                                 if(liste.get(il).compareToIgnoreCase(liste.get(il+1))>=0){
                                     String konu=null;
                                     String konui=null;
@@ -399,7 +425,8 @@ public class MainActivity extends AppCompatActivity {
                                     sureee.add(il+1,kaka);
                                 }
                             }
-                        }
+                        }*/
+                        uzuu = liste.size();
                         for(int as=0;as<uzuu;as++){
                             listee.add(new OzelListe(liste.get(as),sureee.get(as),sanatciii.get(as),konumlar.get(as)));
                         }
