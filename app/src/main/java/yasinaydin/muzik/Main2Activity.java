@@ -168,7 +168,12 @@ public class Main2Activity extends AppCompatActivity {
                     z = 1;
                     w = w + 1;
                     d=1;
-                    startService(in);
+                    if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
+                        startForegroundService(in);
+                    }
+                    else{
+                        startService(in);
+                    }
                 }
             }
         };
@@ -203,7 +208,12 @@ public class Main2Activity extends AppCompatActivity {
                         z = 1;
                         w = w + 1;
                         d=1;
-                        startService(in);
+                        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
+                            startForegroundService(in);
+                        }
+                        else{
+                            startService(in);
+                        }
                     }
                 }
             }
@@ -239,7 +249,12 @@ public class Main2Activity extends AppCompatActivity {
                         z = 1;
                         w = w + 1;
                         d=1;
-                        startService(in);
+                        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
+                            startForegroundService(in);
+                        }
+                        else{
+                            startService(in);
+                        }
                     }
                 }
             }
@@ -303,7 +318,12 @@ public class Main2Activity extends AppCompatActivity {
                 Intent in=new Intent(Main2Activity.this,Muzikk.class);
                 z=1;
                 w=w-1;
-                startService(in);
+                if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
+                    startForegroundService(in);
+                }
+                else{
+                    startService(in);
+                }
             }
         });
         ileri.setOnClickListener(new View.OnClickListener() {
@@ -312,7 +332,12 @@ public class Main2Activity extends AppCompatActivity {
                 Intent in=new Intent(Main2Activity.this,Muzikk.class);
                 z=1;
                 w=w+1;
-                startService(in);
+                if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
+                    startForegroundService(in);
+                }
+                else{
+                    startService(in);
+                }
             }
         });
 
@@ -321,7 +346,12 @@ public class Main2Activity extends AppCompatActivity {
             public void onClick(View v) {
                 Intent in=new Intent(Main2Activity.this,Muzikk.class);
                 z=2;
-                startService(in);
+                if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
+                    startForegroundService(in);
+                }
+                else{
+                    startService(in);
+                }
             }
         });
         cubuk.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {

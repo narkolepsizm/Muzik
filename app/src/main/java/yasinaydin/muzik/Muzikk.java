@@ -13,14 +13,22 @@ import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.AudioManager;
+import android.media.MediaDescription;
 import android.media.MediaMetadata;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
+import android.media.browse.MediaBrowser;
+import android.media.session.MediaController;
 import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
+import android.net.Uri;
 import android.net.wifi.WifiManager;
+import android.os.Binder;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.IBinder;
+import android.os.ResultReceiver;
+import android.service.media.MediaBrowserService;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.telephony.PhoneStateListener;
@@ -32,9 +40,14 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
+import androidx.media.session.MediaButtonReceiver;
 
 import java.io.IOException;
+import java.security.Key;
+import java.util.ArrayList;
+import java.util.List;
 
 import static yasinaydin.muzik.MainActivity.e;
 import static yasinaydin.muzik.MainActivity.eski;
@@ -56,7 +69,7 @@ import static yasinaydin.muzik.MainActivity.t;
 public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeListener{
     static long y;
     String muzik;
-
+    IBinder binderr = new Binderr();
     int dc=0;
     static MediaPlayer oynat;
     static int o=0,d,pos;
@@ -69,13 +82,127 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
     MediaSessionCompat msc;
     NotificationManager nm;
     NotificationCompat.Builder nb;
-    PlaybackState pbs;
+    PlaybackState.Builder pbsb;
     NotificationChannel nc;
     Notification n;
     MediaMetadataRetriever mmt=new MediaMetadataRetriever();
     RemoteViews view=new RemoteViews("yasinaydin.muzik",R.layout.bildirimduzeni);
     MediaSession ms;
     long zam;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        tm=(TelephonyManager)getSystemService(Context.TELEPHONY_SERVICE);
+        am=(AudioManager)getSystemService(Context.AUDIO_SERVICE);
+        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.LOLLIPOP){
+            ms=new MediaSession(Muzikk.this,"Muzikk");
+            ms.setMediaButtonReceiver(null);
+            simdi=System.currentTimeMillis();
+            eski=0;
+            say=0;
+            yesay=0;
+            ms.setCallback(new MediaSession.Callback() {
+                @Override
+                public void onSeekTo(long pos) {
+                    if(oynat.isPlaying()){
+                        oynat.seekTo((int)pos);
+                    }
+                    super.onSeekTo(pos);
+                }
+                @Override
+                public boolean onMediaButtonEvent(@NonNull Intent mediaButtonIntent) {
+                    KeyEvent ev=(KeyEvent)mediaButtonIntent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
+                    if(ev!=null){
+                        int kc=ev.getKeyCode();
+                        int act=ev.getAction();
+                        if(act==KeyEvent.ACTION_DOWN) {
+                            Log.d("TAG",""+kc);
+                            if (kc==KeyEvent.KEYCODE_HEADSETHOOK || kc == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || kc == KeyEvent.KEYCODE_MEDIA_PLAY || kc == KeyEvent.KEYCODE_MEDIA_PAUSE) {
+                                eski=simdi;
+                                simdi=System.currentTimeMillis();
+                                say=yesay+simdi-eski;
+                                if((say)<500){
+                                    z = 1;
+                                    w = w - 2;
+                                    if(w<0){
+                                        w=0;
+                                    }
+                                    Intent in = new Intent(Muzikk.this, Muzikk.class);
+                                    if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
+                                        startForegroundService(in);
+                                    }
+                                    else{
+                                        startService(in);
+                                    }
+                                    Log.i("TAG","geri");
+                                }
+                                else if((say-yesay)<250){
+                                    z = 1;
+                                    w = w + 1;
+                                    Intent in = new Intent(Muzikk.this, Muzikk.class);
+                                    if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
+                                        startForegroundService(in);
+                                    }
+                                    else{
+                                        startService(in);
+                                    }
+                                    Log.i("TAG","ileri");
+                                }
+                                else {
+                                    if(w>=0&&w<konumlar.size()) {
+                                        oyna();
+                                    }
+                                }
+                                say=say-yesay;
+                                yesay=say;
+                            }
+                            else if (kc == KeyEvent.KEYCODE_MEDIA_NEXT) {
+                                z = 1;
+                                w = w + 1;
+                                Intent in = new Intent(Muzikk.this, Muzikk.class);
+                                if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
+                                    startForegroundService(in);
+                                }
+                                else{
+                                    startService(in);
+                                }
+                            }
+                            else if (kc == KeyEvent.KEYCODE_MEDIA_PREVIOUS) {
+                                z = 1;
+                                w = w - 1;
+                                Intent in = new Intent(Muzikk.this, Muzikk.class);
+                                if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
+                                    startForegroundService(in);
+                                }
+                                else{
+                                    startService(in);
+                                }
+                            }
+                        }
+                    }
+                    return super.onMediaButtonEvent(mediaButtonIntent);
+                }
+            });
+            pbsb=new PlaybackState.Builder()
+                    .setActions(PlaybackState.ACTION_PLAY_PAUSE
+                            | PlaybackState.ACTION_SKIP_TO_NEXT
+                            | PlaybackState.ACTION_SKIP_TO_PREVIOUS
+                            | PlaybackState.ACTION_SEEK_TO);
+            ms.setPlaybackState(pbsb.setState(PlaybackState.STATE_PLAYING,0,0).build());
+            ms.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
+            ms.setActive(true);
+        }
+        else{
+            Log.i("VERSION_TAG","Versionnnnnn");
+        }
+        registerReceiver(bc,inf);
+        dc=am.requestAudioFocus(Muzikk.this,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN);
+        if(tm!=null){
+            tm.listen(psl,PhoneStateListener.LISTEN_CALL_STATE);
+        }
+    }
+
     @Override
     public void onAudioFocusChange(int focusChange) {
         if(focusChange==AudioManager.AUDIOFOCUS_GAIN){
@@ -128,7 +255,7 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
                 durdurr();
             }
             else if(intent.getAction().equals(Intent.ACTION_MEDIA_BUTTON)){
-                Log.e("ANANI","ÇALIŞTI");
+                Log.e("BRUH","ÇALIŞTI");
             }
         }
     };
@@ -141,98 +268,19 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
     private BroadcastReceiver bc3=new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Log.i("TAG","Ananı...");
-            Toast.makeText(Muzikk.this,"Ananı...",Toast.LENGTH_LONG).show();
+            Log.i("TAG","BRUH...");
+            Toast.makeText(Muzikk.this,"BRUH...",Toast.LENGTH_LONG).show();
         }
     };
     @Nullable
     @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
-    @Nullable
-    @Override
     public int onStartCommand(Intent intent,int flags,int startId){
+        Log.d("TAG", "basladi");
+        MediaSessionCompat msc = new MediaSessionCompat(Muzikk.this,"Muzikk");
         if(intent.getBooleanExtra("kapat", false)){
             System.exit(0);
         }
-        tm=(TelephonyManager)getSystemService(Context.TELEPHONY_SERVICE);
-        am=(AudioManager)getSystemService(Context.AUDIO_SERVICE);
         vernotu();
-        dc=am.requestAudioFocus(Muzikk.this,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN);
-        if(tm!=null){
-            tm.listen(psl,PhoneStateListener.LISTEN_CALL_STATE);
-        }
-        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.LOLLIPOP){
-            ms=new MediaSession(Muzikk.this,"MSTAG");
-            simdi=System.currentTimeMillis();
-            eski=0;
-            say=0;
-            yesay=0;
-            ms.setCallback(new MediaSession.Callback() {
-                @Override
-                public boolean onMediaButtonEvent(@NonNull Intent mediaButtonIntent) {
-                    KeyEvent ev=(KeyEvent)mediaButtonIntent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
-                    if(ev!=null){
-                        int kc=ev.getKeyCode();
-                        int act=ev.getAction();
-                        if(act==KeyEvent.ACTION_DOWN) {
-                            Log.d("TAG",""+kc);
-                            if (kc==KeyEvent.KEYCODE_HEADSETHOOK || kc == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || kc == KeyEvent.KEYCODE_MEDIA_PLAY || kc == KeyEvent.KEYCODE_MEDIA_PAUSE) {
-                                eski=simdi;
-                                simdi=System.currentTimeMillis();
-                                say=yesay+simdi-eski;
-                                if((say)<500){
-                                    z = 1;
-                                    w = w - 2;
-                                    if(w<0){
-                                        w=0;
-                                    }
-                                    Intent in = new Intent(Muzikk.this, Muzikk.class);
-                                    startService(in);
-                                    Log.i("TAG","geri");
-                                }
-                                else if((say-yesay)<250){
-                                    z = 1;
-                                    w = w + 1;
-                                    Intent in = new Intent(Muzikk.this, Muzikk.class);
-                                    startService(in);
-                                    Log.i("TAG","ileri");
-                                }
-                                else {
-                                    if(w>=0&&w<konumlar.size()) {
-                                        oyna();
-                                    }
-                                }
-                                say=say-yesay;
-                                yesay=say;
-                            }
-                            else if (kc == KeyEvent.KEYCODE_MEDIA_NEXT) {
-                                z = 1;
-                                w = w + 1;
-                                Intent in = new Intent(Muzikk.this, Muzikk.class);
-                                startService(in);
-                            }
-                            else if (kc == KeyEvent.KEYCODE_MEDIA_PREVIOUS) {
-                                z = 1;
-                                w = w - 1;
-                                Intent in = new Intent(Muzikk.this, Muzikk.class);
-                                startService(in);
-                            }
-                        }
-                    }
-                    return super.onMediaButtonEvent(mediaButtonIntent);
-                }
-            });
-            pbs=new PlaybackState.Builder().setActions(PlaybackState.ACTION_PLAY_PAUSE).setActions(PlaybackState.ACTION_SKIP_TO_PREVIOUS).setActions(PlaybackState.ACTION_SKIP_TO_NEXT).setState(PlaybackState.STATE_PLAYING,0,0,0).build();
-            ms.setPlaybackState(pbs);
-            ms.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
-            ms.setActive(true);
-        }
-        else{
-            Log.i("VERSION_TAG","Versionnnnnn");
-        }
-        registerReceiver(bc,inf);
         if(z==1) {
             if(w>=0) {
                 oynat(w);
@@ -269,6 +317,7 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
 
     @Override
     public void onDestroy() {
+        Log.d("TAG", "bitti");
         tm=(TelephonyManager)getSystemService(Context.TELEPHONY_SERVICE);
         try {
             unregisterReceiver(bc);
@@ -276,17 +325,28 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
         }
         catch (Exception e){
             e.printStackTrace();
-            Log.d("TAG","aNasKm");
+            Log.d("TAG","BRUHH");
         }
 
         //unregisterReceiver(bc2);
         if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.LOLLIPOP){
             if(ms!=null){
-                ms.setActive(false);
+                ms.release();
             }
         }
         if(tm!=null){
             tm.listen(psl,PhoneStateListener.LISTEN_NONE);
+        }
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return binderr;
+    }
+    public class Binderr extends Binder {
+        Muzikk getService() {
+            return Muzikk.this;
         }
     }
     public void oynat(int position){
@@ -294,9 +354,7 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
             oynat.stop();
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    ms.setPlaybackState(new PlaybackState.Builder()
-                            .setState(PlaybackState.STATE_STOPPED, oynat.getCurrentPosition(), 1f)
-                            .build());
+                    ms.setPlaybackState(pbsb.setState(PlaybackState.STATE_STOPPED,oynat.getCurrentPosition(),1f).build());
                 }
             }
             catch (Exception e){
@@ -316,9 +374,7 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
                 oynat.prepare();
                 oynat.start();
                 if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.LOLLIPOP) {
-                    ms.setPlaybackState(new PlaybackState.Builder()
-                            .setState(PlaybackState.STATE_PLAYING, oynat.getCurrentPosition(), 1f)
-                            .build());
+                    ms.setPlaybackState(pbsb.setState(PlaybackState.STATE_PLAYING,oynat.getCurrentPosition(),1f).build());
                 }
                 o = 1;
                 e = oynat.getDuration();
@@ -373,17 +429,13 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
         if(oynat.isPlaying()){
             oynat.pause();
             if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.LOLLIPOP) {
-                ms.setPlaybackState(new PlaybackState.Builder()
-                        .setState(PlaybackState.STATE_PAUSED, oynat.getCurrentPosition(), 1f)
-                        .build());
+                ms.setPlaybackState(pbsb.setState(PlaybackState.STATE_PAUSED,oynat.getCurrentPosition(),1f).build());
             }
         }
         else{
             oynat.start();
             if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.LOLLIPOP) {
-                ms.setPlaybackState(new PlaybackState.Builder()
-                        .setState(PlaybackState.STATE_PLAYING, oynat.getCurrentPosition(), 1f)
-                        .build());
+                ms.setPlaybackState(pbsb.setState(PlaybackState.STATE_PLAYING,oynat.getCurrentPosition(),1f).build());
             }
         }
         if(t==1){
@@ -395,9 +447,7 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
         if(oynat.isPlaying()){
             oynat.pause();
             if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.LOLLIPOP) {
-                ms.setPlaybackState(new PlaybackState.Builder()
-                        .setState(PlaybackState.STATE_PAUSED, oynat.getCurrentPosition(), 1f)
-                        .build());
+                ms.setPlaybackState(pbsb.setState(PlaybackState.STATE_PAUSED,oynat.getCurrentPosition(),1f).build());
             }
             if(t==1){
                 deyis();
@@ -409,9 +459,7 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
         if(oynat.isPlaying()){
             oynat.pause();
             if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.LOLLIPOP) {
-                ms.setPlaybackState(new PlaybackState.Builder()
-                        .setState(PlaybackState.STATE_PAUSED, oynat.getCurrentPosition(), 1f)
-                        .build());
+                ms.setPlaybackState(pbsb.setState(PlaybackState.STATE_PAUSED,oynat.getCurrentPosition(),1f).build());
             }
             fokus=true;
             if(t==1){
@@ -424,9 +472,7 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
         if(oynat.isPlaying()){
             oynat.pause();
             if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.LOLLIPOP) {
-                ms.setPlaybackState(new PlaybackState.Builder()
-                        .setState(PlaybackState.STATE_PAUSED, oynat.getCurrentPosition(), 1f)
-                        .build());
+                ms.setPlaybackState(pbsb.setState(PlaybackState.STATE_PAUSED,oynat.getCurrentPosition(),1f).build());
             }
             arama=true;
             if(t==1){
@@ -439,9 +485,7 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
         if(!oynat.isPlaying()){
             oynat.start();
             if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.LOLLIPOP) {
-                ms.setPlaybackState(new PlaybackState.Builder()
-                        .setState(PlaybackState.STATE_PLAYING, oynat.getCurrentPosition(), 1f)
-                        .build());
+                ms.setPlaybackState(pbsb.setState(PlaybackState.STATE_PLAYING,oynat.getCurrentPosition(),1f).build());
             }
             if(t==1){
                 deyis();
@@ -458,7 +502,7 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
         Log.i("TAG","vernotu");
         if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
             nm=(NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-            nc=new NotificationChannel("aNasKm","Bildirim",NotificationManager.IMPORTANCE_LOW);
+            nc=new NotificationChannel("bruhhh","Bildirim",NotificationManager.IMPORTANCE_LOW);
             nc.canBypassDnd();
             nm.createNotificationChannel(nc);
             durdur = new Intent(Muzikk.this, VerBildiriyi.class);
@@ -481,7 +525,7 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
             view.setImageViewResource(R.id.imageButtonumsu2, android.R.drawable.ic_media_previous);
             view.setImageViewResource(R.id.imageButtonumsu3, android.R.drawable.ic_media_next);
             view.setImageViewResource(R.id.imageButtonumsu4, android.R.drawable.ic_menu_close_clear_cancel);
-            n=new Notification.Builder(this,"aNasKm")
+            n=new Notification.Builder(this,"bruhhh")
             .setSmallIcon(R.drawable.music)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(true)
@@ -533,7 +577,7 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
         if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
             if(oynat.isPlaying()){
                 view.setImageViewResource(R.id.imageButtonumsu,android.R.drawable.ic_media_pause);
-                n=new Notification.Builder(this,"aNasKm")
+                n=new Notification.Builder(this,"bruhhh")
                 .setSmallIcon(R.drawable.music)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setOngoing(true)
@@ -543,7 +587,7 @@ public class Muzikk extends Service implements AudioManager.OnAudioFocusChangeLi
             }
             else {
                 view.setImageViewResource(R.id.imageButtonumsu, android.R.drawable.ic_media_play);
-                n=new Notification.Builder(this,"aNasKm")
+                n=new Notification.Builder(this,"bruhhh")
                 .setSmallIcon(R.drawable.music)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setOngoing(false)

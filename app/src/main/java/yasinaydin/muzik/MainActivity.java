@@ -3,10 +3,12 @@ package yasinaydin.muzik;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -17,6 +19,7 @@ import android.media.MediaMetadataRetriever;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Environment;
+import android.os.IBinder;
 import android.provider.MediaStore;
 import android.os.Bundle;
 import android.util.Log;
@@ -144,7 +147,12 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
                 Intent in=new Intent(MainActivity.this,Muzikk.class);
                 z=2;
-                startService(in);
+                if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
+                    startForegroundService(in);
+                }
+                else{
+                    startService(in);
+                }
             }
         });
         ll4.setOnClickListener(new View.OnClickListener() {
@@ -169,13 +177,13 @@ public class MainActivity extends AppCompatActivity {
                 Intent in = new Intent(MainActivity.this, Muzikk.class);
                 z = 1;
                 w = position;
-                /*if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
+                if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){
                     startForegroundService(in);
                 }
                 else{
                     startService(in);
-                }*/
-                startService(in);
+                }
+                //startService(in);
             }
         });
     }
